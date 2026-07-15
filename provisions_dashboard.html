@@ -36,4 +36,110 @@
   <div class="tabs" id="tabs"></div>
   <div class="metrics" id="metrics"></div>
   <div class="table-header">
-    <span>Verkäufer</span><span>Anteil</span
+    <span>Verkäufer</span><span>Anteil</span><span style="text-align:right;">Betrag</span><span style="text-align:right;">%</span>
+  </div>
+  <div id="rows"></div>
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const data = {
+  Januar:  { gesamt: 11768.12, Patrick: 8870.73,  Lukas: 1520.14, Niklas: 1377.25 },
+  Februar: { gesamt: 19861.27, Patrick: 9992.31,  Lukas: 6674.06, Niklas: 3194.90 },
+  März:    { gesamt: 25779.05, Patrick: 15002.97, Lukas: 7503.84, Niklas: 3272.24 },
+  April:   { gesamt: 19295.69, Patrick: 10102.64, Lukas: 8222.14, Niklas: 970.91  },
+  Mai:     { gesamt: 25532.27, Patrick: 10183.39, Lukas: 7217.88, Niklas: 8131.00 },
+  Juni:    { gesamt: 26197.51, Patrick: 9819.40,  Lukas: 7831.46, Niklas: 8546.65 }
+};
+
+const colors = { Patrick: '#378ADD', Lukas: '#1D9E75', Niklas: '#D85A30' };
+const sellers = ['Patrick', 'Lukas', 'Niklas'];
+const months = Object.keys(data);
+let activeMonth = 'alle';
+let chart = null;
+
+function getAlle() {
+  const r = { gesamt: 0, Patrick: 0, Lukas: 0, Niklas: 0 };
+  Object.values(data).forEach(m => { r.gesamt += m.gesamt; sellers.forEach(s => r[s] += m[s]); });
+  return r;
+}
+
+function fmt(n) {
+  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+function renderTabs() {
+  const tabs = ['alle', ...months];
+  document.getElementById('tabs').innerHTML = tabs.map(t =>
+    `<button class="tab ${activeMonth === t ? 'active' : ''}" onclick="setMonth('${t}')">${t.charAt(0).toUpperCase() + t.slice(1)}</button>`
+  ).join('');
+}
+
+function render() {
+  const d = activeMonth === 'alle' ? getAlle() : data[activeMonth];
+  const top = sellers.reduce((a, b) => d[a] > d[b] ? a : b);
+  const topPct = (d[top] / d.gesamt * 100).toFixed(1);
+
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">Gesamtumsatz</div><div class="metric-value">${fmt(d.gesamt)}</div></div>
+    <div class="metric"><div class="metric-label">Monate erfasst</div><div class="metric-value">${activeMonth === 'alle' ? months.length : 1}</div></div>
+    <div class="metric"><div class="metric-label">Spitzenreiter</div><div class="metric-value top">${top} ${topPct}%</div></div>
+  `;
+
+  document.getElementById('rows').innerHTML = sellers.map(s => {
+    const pct = (d[s] / d.gesamt * 100);
+    return `
+      <div class="seller-row">
+        <span class="seller-name">${s}</span>
+        <span class="bar-bg"><span class="bar-fill" style="width:${pct}%;background:${colors[s]};"></span></span>
+        <span class="seller-amount">${fmt(d[s])}</span>
+        <span class="seller-pct" style="color:${colors[s]};">${pct.toFixed(1)}%</span>
+      </div>`;
+  }).join('');
+
+  document.getElementById('legend').innerHTML = sellers.map(s =>
+    `<span><span class="legend-dot" style="background:${colors[s]};"></span>${s}</span>`
+  ).join('');
+
+  renderChart();
+}
+
+function renderChart() {
+  const ctx = document.getElementById('chart').getContext('2d');
+  const labels = activeMonth === 'alle' ? months : [activeMonth];
+  const datasets = sellers.map(s => ({
+    label: s,
+    data: labels.map(m => data[m][s]),
+    backgroundColor: colors[s],
+    borderRadius: 3,
+    maxBarThickness: 90
+  }));
+
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { stacked: true, grid: { display: false } },
+        y: {
+          stacked: true,
+          ticks: { callback: v => (v / 1000) + 'k €' },
+          grid: { color: '#f0f0f0' }
+        }
+      }
+    }
+  });
+}
+
+window.setMonth = function(m) { activeMonth = m; renderTabs(); render(); };
+renderTabs();
+render();
+</script>
+</body>
+</html>
