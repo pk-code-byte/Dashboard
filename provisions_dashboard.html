@@ -16,12 +16,16 @@
   .metric { background: #f5f5f3; border-radius: 8px; padding: 12px 16px; }
   .metric-label { font-size: 12px; color: #888; margin-bottom: 4px; }
   .metric-value { font-size: 20px; font-weight: 500; }
+  .metric-value.top { color: #378ADD; }
   .table-header { display: grid; grid-template-columns: 80px 1fr 120px 70px; gap: 12px; padding: 0 0 8px; font-size: 11px; color: #888; border-bottom: 1px solid #eee; margin-bottom: 4px; }
   .seller-row { display: grid; grid-template-columns: 80px 1fr 120px 70px; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+  .seller-name { font-weight: 500; font-size: 14px; }
+  .seller-amount { text-align: right; font-size: 14px; }
+  .seller-pct { text-align: right; font-size: 14px; font-weight: 500; }
   .bar-bg { background: #f0f0ee; border-radius: 4px; height: 8px; overflow: hidden; }
   .bar-fill { height: 8px; border-radius: 4px; transition: width 0.4s ease; }
-  .chart-wrap { margin-top: 24px; position: relative; width: 100%; height: 220px; }
-  .legend { display: flex; gap: 16px; margin-top: 10px; font-size: 12px; color: #888; }
+  .chart-wrap { margin-top: 24px; position: relative; width: 100%; height: 260px; }
+  .legend { display: flex; gap: 16px; margin-top: 10px; font-size: 12px; color: #888; justify-content: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 </style>
@@ -32,95 +36,4 @@
   <div class="tabs" id="tabs"></div>
   <div class="metrics" id="metrics"></div>
   <div class="table-header">
-    <span>Verkäufer</span><span>Anteil</span><span style="text-align:right;">Betrag</span><span style="text-align:right;">%</span>
-  </div>
-  <div id="rows"></div>
-  <div class="chart-wrap"><canvas id="chart"></canvas></div>
-  <div class="legend" id="legend"></div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script>
-const data = {
-  Januar:  { gesamt: 11768.12, Patrick: 8870.73, Lukas: 1520.14, Niklas: 1377.25 },
-  Februar: { gesamt: 19861.27, Patrick: 9992.31, Lukas: 6674.06, Niklas: 3194.90 },
-  März:    { gesamt: 24903.35, Patrick: 14111.43, Lukas: 7519.68, Niklas: 3272.24 }
-};
-
-const colors = { Patrick: '#378ADD', Lukas: '#1D9E75', Niklas: '#D85A30' };
-const sellers = ['Patrick', 'Lukas', 'Niklas'];
-let activeMonth = 'alle';
-
-function getAlle() {
-  const r = { gesamt: 0, Patrick: 0, Lukas: 0, Niklas: 0 };
-  Object.values(data).forEach(m => { r.gesamt += m.gesamt; sellers.forEach(s => r[s] += m[s]); });
-  return r;
-}
-
-function fmt(n) {
-  return n.toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-}
-
-function render() {
-  const d = activeMonth === 'alle' ? getAlle() : data[activeMonth];
-  const top = sellers.reduce((a, b) => d[a] > d[b] ? a : b);
-
-  document.getElementById('metrics').innerHTML = `
-    <div class="metric"><div class="metric-label">Gesamtumsatz</div><div class="metric-value">${fmt(d.gesamt)}</div></div>
-    <div class="metric"><div class="metric-label">Monate erfasst</div><div class="metric-value">${activeMonth === 'alle' ? Object.keys(data).length : 1}</div></div>
-    <div class="metric"><div class="metric-label">Spitzenreiter</div><div class="metric-value" style="font-size:15px;color:${colors[top]};">${top} ${(d[top]/d.gesamt*100).toFixed(1)}%</div></div>
-  `;
-
-  document.getElementById('rows').innerHTML = sellers.map(s => {
-    const pct = (d[s] / d.gesamt * 100).toFixed(1);
-    return `<div class="seller-row">
-      <span style="font-size:13px;font-weight:500;">${s}</span>
-      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${colors[s]};"></div></div>
-      <span style="font-size:13px;text-align:right;">${fmt(d[s])}</span>
-      <span style="font-size:13px;font-weight:500;text-align:right;color:${colors[s]};">${pct}%</span>
-    </div>`;
-  }).join('');
-
-  renderChart();
-}
-
-let chartInst = null;
-function renderChart() {
-  const months = Object.keys(data);
-  if (chartInst) chartInst.destroy();
-  chartInst = new Chart(document.getElementById('chart'), {
-    type: 'bar',
-    data: {
-      labels: months,
-      datasets: sellers.map(s => ({
-        label: s, data: months.map(m => data[m][s]),
-        backgroundColor: colors[s], borderRadius: 4, borderSkipped: false
-      }))
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } } },
-      scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 12 } } },
-        y: { stacked: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 }, callback: v => (v/1000).toFixed(0) + 'k €' } }
-      }
-    }
-  });
-  document.getElementById('legend').innerHTML = sellers.map(s =>
-    `<span><span class="legend-dot" style="background:${colors[s]};"></span>${s}</span>`
-  ).join('');
-}
-
-function renderTabs() {
-  const tabs = ['alle', ...Object.keys(data)];
-  document.getElementById('tabs').innerHTML = tabs.map(t =>
-    `<button class="tab ${activeMonth===t?'active':''}" onclick="setMonth('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</button>`
-  ).join('');
-}
-
-window.setMonth = function(m) { activeMonth = m; renderTabs(); render(); };
-renderTabs();
-render();
-</script>
-</body>
-</html>
+    <span>Verkäufer</span><span>Anteil</span
